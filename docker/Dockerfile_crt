@@ -9,14 +9,9 @@ ARG UBUNTU_VERSION=16.04
 ARG ARCH=
 ARG CUDA=10.0
 
-#FROM nvidia/cudagl:11.4.1-runtime-ubuntu20.04
-#FROM nvidia/cudagl${ARCH:+-$ARCH}:${CUDA}-base-ubuntu${UBUNTU_VERSION} as base
-#FROM pytorch/pytorch:1.10.0-cuda11.3-cudnn8-devel
-FROM pytorch/pytorch:1.2-cuda10.0-cudnn7-devel
+FROM nvidia/cudagl${ARCH:+-$ARCH}:${CUDA}-base-ubuntu${UBUNTU_VERSION} as base
 # ARCH and CUDA are specified again because the FROM directive resets ARGs
 # (but their default value is retained if set previously)
-#FROM --platform=linux/aarch64 ubuntu:latest
-#FROM continuumio/miniconda3:latest
 
 ARG UBUNTU_VERSION
 ARG ARCH
@@ -31,46 +26,20 @@ ENV DEBIAN_FRONTEND="noninteractive"
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV PATH /opt/conda/bin:$PATH
 
-
 # install anaconda
-
-
-RUN rm /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/nvidia-ml.list \
-    && apt-key del 7fa2af80 \
-    && apt-get update && apt-get install -y --no-install-recommends wget \
-    && wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-keyring_1.0-1_all.deb \
-    && dpkg -i cuda-keyring_1.0-1_all.deb \
-    && rm cuda-keyring_1.0-1_all.deb
-
-
-
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y zlib1g zlib1g-dev libosmesa6-dev libgl1-mesa-glx libglfw3 cmake git \
-    && ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so
-#libglew2.0 
-
 RUN apt-get update --fix-missing && apt-get install -y wget bzip2 ca-certificates \
     libglib2.0-0 libxext6 libsm6 libxrender1 \
     git mercurial subversion
 
-RUN apt-get install -y libopenmpi-dev libsuitesparse-dev software-properties-common build-essential libglew-dev zip unzip
-
-#RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
-#RUN /bin/bash /tmp/miniconda.sh
-#RUN /bin/bash /tmp/miniconda.sh -b -p /opt/conda
-#RUN rm /tmp/miniconda.sh && \
-#    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-#    echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc
-
-#RUN rm /var/cache/apt/archives/libc6-dbg_2.26-6_i386.deb
-
-RUN apt-get install -y dpkg grep sed
-#RUN apt-get install curl
-RUN curl -L "https://github.com/krallin/tini/releases/download/v0.19.0/tini_0.19.0.deb" > tini.deb
-#RUN TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
-RUN TINI_VERSION=0.19.0
-#    curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
-RUN dpkg -i tini.deb && \
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
+    /bin/bash /tmp/miniconda.sh -b -p /opt/conda && \
+    rm /tmp/miniconda.sh && \
+    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> /etc/bash.bashrc
+RUN apt-get install -y curl grep sed dpkg && \
+    TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
+    curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
+    dpkg -i tini.deb && \
     rm tini.deb && \
     apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -90,8 +59,8 @@ RUN apt-get update \
         cuda-curand-${CUDA/./-} \
         cuda-cusolver-${CUDA/./-} \
         cuda-cusparse-${CUDA/./-} \
-#        curl \
-#        libcudnn7=${CUDNN}+cuda${CUDA} \
+        curl \
+        libcudnn7=${CUDNN}+cuda${CUDA} \
         libfreetype6-dev \
         libhdf5-serial-dev \
         libzmq3-dev \
@@ -102,12 +71,12 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-#RUN [ ${ARCH} = ppc64le ] || (apt-get update && \
-#        apt-get install nvinfer-runtime-trt-repo-ubuntu${UBUNTU_VERSION/./}-5.0.2-ga-cuda${CUDA} \
-#        && apt-get update \
-#        && apt-get install -y --no-install-recommends libnvinfer5=5.0.2-1+cuda${CUDA} \
-#        && apt-get clean \
-#        && rm -rf /var/lib/apt/lists/*)
+RUN [ ${ARCH} = ppc64le ] || (apt-get update && \
+        apt-get install nvinfer-runtime-trt-repo-ubuntu${UBUNTU_VERSION/./}-5.0.2-ga-cuda${CUDA} \
+        && apt-get update \
+        && apt-get install -y --no-install-recommends libnvinfer5=5.0.2-1+cuda${CUDA} \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*)
 
 # For CUDA profiling, TensorFlow requires CUPTI.
 ENV LD_LIBRARY_PATH /usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH
@@ -191,6 +160,4 @@ ENV PYTHONPATH="rand_param_envs:$PYTHONPATH"
 RUN echo "source activate pearl" >> /root/.bashrc \
     && echo "cd /root/code" >> /root/.bashrc
 ENV PATH /opt/conda/envs/pearl/bin:$PATH
-
-#COPY . /root/code
 
