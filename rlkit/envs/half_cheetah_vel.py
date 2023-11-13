@@ -31,9 +31,9 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         super(HalfCheetahVelEnv, self).__init__()
 
     def step(self, action):
-        xposbefore = self.sim.data.qpos[0]
+        xposbefore = self.model.data.qpos[0]
         self.do_simulation(action, self.frame_skip)
-        xposafter = self.sim.data.qpos[0]
+        xposafter = self.model.data.qpos[0]
 
         forward_vel = (xposafter - xposbefore) / self.dt
         forward_reward = -1.0 * abs(forward_vel - self._goal_vel)

@@ -96,16 +96,22 @@ class PEARLAgent(nn.Module):
     def update_context(self, inputs):
         ''' append single transition to the current context '''
         o, a, r, no, d, info = inputs
+        #print("Inputs: o:", o, "  a:", a, "  r:", r)
+
         if self.sparse_rewards:
             r = info['sparse_reward']
+            #print("Update r:", r)
+        
         o = ptu.from_numpy(o[None, None, ...])
         a = ptu.from_numpy(a[None, None, ...])
-        r = ptu.from_numpy(np.array([r])[None, None, ...])
+        r = ptu.from_numpy(np.array(r)[None, None, ...])
+        #r = ptu.from_numpy(np.array([r])[None, None, ...])
         no = ptu.from_numpy(no[None, None, ...])
 
         if self.use_next_obs_in_context:
             data = torch.cat([o, a, r, no], dim=2)
         else:
+            #print("Torch Cat Inputs: o:", o.size(), "  a:", a.size(), "  r:", r.size())
             data = torch.cat([o, a, r], dim=2)
         if self.context is None:
             self.context = data

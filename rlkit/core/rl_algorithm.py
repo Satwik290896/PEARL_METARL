@@ -1,9 +1,12 @@
+import os
 import abc
 from collections import OrderedDict
 import time
 
 import gtimer as gt
 import numpy as np
+#from torch.utils.tensorboard import SummaryWriter
+
 
 from rlkit.core import logger, eval_util
 from rlkit.data_management.env_replay_buffer import MultiTaskReplayBuffer
@@ -55,6 +58,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         see default experiment config file for descriptions of the rest of the arguments
         """
+        self.log_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.AR = open(self.log_path + "/" + "Average_Reward.txt", "w")
+        #self.summary_writer = SummaryWriter(self.tensorboard_log_path)
         self.env = env
         self.agent = agent
         self.exploration_agent = agent # Can potentially use a different policy purely for exploration rather than also solving tasks, currently not being used
@@ -120,6 +126,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self._old_table_keys = None
         self._current_path_builder = PathBuilder()
         self._exploration_paths = []
+        self.iter = 0
 
     def make_exploration_policy(self, policy):
          return policy
@@ -141,6 +148,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         '''
         meta-training loop
         '''
+
         self.pretrain()
         params = self.get_epoch_snapshot(-1)
         logger.save_itr_params(-1, params)
@@ -148,11 +156,17 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         gt.set_def_unique(False)
         self._current_path_builder = PathBuilder()
 
+        print("Num_Iterations: ", self.num_iterations)
+
+        self.iter = 0
         # at each iteration, we first collect data from tasks, perform meta-updates, then try to evaluate
         for it_ in gt.timed_for(
                 range(self.num_iterations),
                 save_itrs=True,
         ):
+            self.iter+=1
+
+            print("[START] Iteration: ", iter, "/", self.num_iterations)
             self._start_epoch(it_)
             self.training_mode(True)
             if it_ == 0:
@@ -164,6 +178,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     self.collect_data(self.num_initial_steps, 1, np.inf)
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
+                print("[INIT] Collecting Data for Tasks Sample: ", i, "   Num_Tasks_Sample: ", self.num_tasks_sample)
                 idx = np.random.randint(len(self.train_tasks))
                 self.task_idx = idx
                 self.env.reset_task(idx)
@@ -179,8 +194,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 if self.num_extra_rl_steps_posterior > 0:
                     self.collect_data(self.num_extra_rl_steps_posterior, 1, self.update_post_train, add_to_enc_buffer=False)
 
+            print("[TRAINING] Iteration: ", self.iter, "/", self.num_iterations)
+
             # Sample train tasks and compute gradient updates on parameters.
             for train_step in range(self.num_train_steps_per_itr):
+                print("[TRAINING] Iteration: ", self.iter, "/", self.num_iterations, "      train_step: ", train_step, "/", self.num_train_steps_per_itr)
                 indices = np.random.choice(self.train_tasks, self.meta_batch)
                 self._do_training(indices)
                 self._n_train_steps_total += 1
@@ -189,10 +207,13 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             self.training_mode(False)
 
             # eval
+            print("[EVAL] Iteration: ", self.iter, "/", self.num_iterations)
             self._try_to_eval(it_)
             gt.stamp('eval')
 
             self._end_epoch()
+            print("[END] Iteration: ", self.iter, "/", self.num_iterations)
+
 
     def pretrain(self):
         """
@@ -434,6 +455,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
             train_returns.append(eval_util.get_average_returns(paths))
         train_returns = np.mean(train_returns)
+        #self.summary_writer.add_scalar("Average_Reward", train_returns, self.iter)
+        self.AR.write(str(self.iter) + "   " + str(train_returns) + "\n") 
         ### eval train tasks with on-policy data to match eval of test tasks
         train_final_returns, train_online_returns = self._do_eval(indices, epoch)
         eval_util.dprint('train online returns')
