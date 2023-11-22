@@ -1,9 +1,9 @@
 {
     "env_name": "cheetah-vel",
-    "n_train_tasks": 100,
-    "n_eval_tasks": 30,
+    "n_train_tasks": 35,
+    "n_eval_tasks": 5,
     "env_params": {
-        "n_tasks": 130
+        "n_tasks": 40
     }
     ,
     "algo_params": {
@@ -16,5 +16,9 @@
         "num_exp_traj_eval": 2,
         "embedding_batch_size": 100,
         "embedding_mini_batch_size": 100
-    }
+    },
+    "task_paths": "/root/code/configs/cheetah_vel/env_cheetah_vel_train_task{}.pkl",
+    "train_buffer_paths": "/root/code/configs/cheetah_vel/buffers_cheetah_vel_train_{}_sub_task_0.hdf5",
+    "test_buffer_paths": "/root/code/configs/cheetah_vel/buffers_cheetah_vel_train_{}_sub_task_0.hdf5"
+
 }

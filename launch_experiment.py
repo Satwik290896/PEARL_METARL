@@ -3,6 +3,7 @@ Launcher for experiments with PEARL
 
 """
 import os
+import h5py
 import pathlib
 import numpy as np
 import click
@@ -135,8 +136,53 @@ def main(config, gpu, docker, debug):
         variant = deep_update_dict(exp_params, variant)
     variant['util_params']['gpu_id'] = gpu
 
-    experiment(variant)
+    inner_buffers = [variant['train_buffer_paths'].format(idx) for idx in range(variant['n_train_tasks'])]
+    outer_buffers = [variant['train_buffer_paths'].format(idx) for idx in range(variant['n_train_tasks'])]
+    test_buffers = [variant['test_buffer_paths'].format(idx) for idx in range(variant['n_train_tasks'], variant['n_train_tasks'] + variant['n_eval_tasks'])]
+    
+    f = h5py.File(test_buffers[0], 'r')
+    size = f['obs'].shape[0]
+    stored = f['obs'].shape[0]
+    skip = 7
+    size //= skip 
+    n_seed = min(stored, size * skip)
+    chunk_size = n_seed
+    mode = 'end'
 
-if __name__ == "__main__":
+    if mode == 'end':
+        h5slice = slice(-chunk_size, stored)
+    elif mode == 'middle':
+        center = stored // 2
+        h5slice = slice(center // 2 - chunk_size // 2,center // 2 + chunk_size // 2)
+    elif mode == 'start':
+        h5slice = slice(chunk_size)
+    else:
+        print("No such mode: ", mode)
+
+    obs = f['obs'][h5slice][::skip]
+    actions = f['actions'][h5slice][::skip]
+    rewards = f['rewards'][h5slice][::skip]
+    mc_rewards = f['mc_rewards'][h5slice][::skip]
+    terminals = f['terminals'][h5slice][::skip]
+    terminal_obs = f['terminal_obs'][h5slice][::skip]
+    terminal_discounts = f['terminal_discounts'][h5slice][::skip]
+    next_obs = f['next_obs'][h5slice][::skip]
+
+    print(type(obs))
+    print("obs_size:", np.size(obs))
+    print("obs_shape:", np.shape(obs))
+
+    print("actions_size:", np.size(actions))
+    print("actions_shape:", np.shape(actions))
+
+    print("rewards_size:", np.size(rewards))
+    print("rewards_shape:", np.shape(rewards))
+
+    print("mc_rewards_size:", np.size(mc_rewards))
+    print("mc_rewards_shape:", np.shape(mc_rewards))
+        
+    #experiment(variant)
+
+if __name__ == "__main__":  
     main()
 

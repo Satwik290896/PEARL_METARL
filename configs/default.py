@@ -11,6 +11,10 @@ default_config = dict(
         n_tasks=2, # number of distinct tasks in this domain, shoudl equal sum of train and eval tasks
         randomize_tasks=True, # shuffle the tasks after creating them
     ),
+    task_paths = "cheetah_vel/env_cheetah_vel_train_task{}.pkl",
+    train_buffer_paths = "cheetah_vel/buffers_cheetah_vel_train_{}_sub_task_0.hdf5",
+    test_buffer_paths = "cheetah_vel/buffers_cheetah_vel_train_{}_sub_task_0.hdf5",
+
     algo_params=dict(
         meta_batch=16, # number of tasks to average the gradient across
         num_iterations=50, # number of data sampling / training iterates
@@ -49,6 +53,7 @@ default_config = dict(
         debug=False, # debugging triggers printing and writes logs to debug directory
         docker=False, # TODO docker is not yet supported
     )
+
 )
 
 
