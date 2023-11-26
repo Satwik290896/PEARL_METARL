@@ -137,5 +137,6 @@ dependencies:
     - path.py==10.3.1
     - python-dateutil==2.6.1
     - readline==6.2
+    - h5py
 prefix: /home/rakelly/miniconda3/envs/pearl
 
