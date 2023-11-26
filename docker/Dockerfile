@@ -172,6 +172,7 @@ ENV LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:/usr/lib/nvidia-000
 
 
 # ========== Conda Environment ==========
+# hspy is added additionally
 COPY ./environment.yml /tmp/environment.yml
 
 # NOTE: Don't separate the Mujoco key echo and remove commands into separate
