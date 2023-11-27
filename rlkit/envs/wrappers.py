@@ -76,8 +76,15 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
         self._reward_scale = reward_scale
         self._obs_mean = obs_mean
         self._obs_std = obs_std
+
+        print("***  Observation Space Shape  ***: ", np.array(env.observation_space.low).shape)
+        #print("***  Observation (STD) Space Shape  ***: ", self._obs_std.shape)
+
         ub = np.ones(self._wrapped_env.action_space.shape)
+        print("***  Action Space Shape  ***: ", self._wrapped_env.action_space.shape)
+
         self.action_space = Box(-1 * ub, ub)
+        print("***  Real Action Space Shape  ***: ", self.action_space.sample().shape)
 
     def estimate_obs_stats(self, obs_batch, override_values=False):
         if self._obs_mean is not None and not override_values:

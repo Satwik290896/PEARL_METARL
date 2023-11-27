@@ -1,4 +1,4 @@
-# AUTHOR: Kristian Hartikainen
+# AUTHOR: Kristian HartikainenMUJOCO_PY
 # Copied with minimal modifications from softlearning codebase:
 #    https://github.com/rail-berkeley/softlearning
 # MAINTAINER Kate Rakelly <rakelly@eecs.berkeley.edu>

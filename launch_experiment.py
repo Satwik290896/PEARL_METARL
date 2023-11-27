@@ -26,8 +26,9 @@ def experiment(variant):
     # create multi-task environment and sample tasks
     env = NormalizedBoxEnv(ENVS[variant['env_name']](**variant['env_params']))
     tasks = env.get_all_task_idx()
-    obs_dim = int(np.prod(env.observation_space.shape))
-    action_dim = int(np.prod(env.action_space.shape))
+    print("All Tasks: ", tasks)
+    obs_dim = int(np.prod(env.observation_space.shape))  #20 for cheetah-vel
+    action_dim = int(np.prod(env.action_space.shape))    #6 for cheetah-vel
     reward_dim = 1
 
     # instantiate networks
@@ -141,7 +142,8 @@ def main(config, gpu, docker, debug):
     test_buffers = [variant['test_buffer_paths'].format(idx) for idx in range(variant['n_train_tasks'], variant['n_train_tasks'] + variant['n_eval_tasks'])]
     
     f = h5py.File(test_buffers[0], 'r')
-    size = f['obs'].shape[0]
+    #size = f['obs'].shape[0]
+    size = 14000                        # To get initial_samples. Not overloading though
     stored = f['obs'].shape[0]
     skip = 7
     size //= skip 
@@ -180,8 +182,20 @@ def main(config, gpu, docker, debug):
 
     print("mc_rewards_size:", np.size(mc_rewards))
     print("mc_rewards_shape:", np.shape(mc_rewards))
+
+    print("terminals_size:", np.size(terminals))
+    print("terminals_shape:", np.shape(terminals))
+
+    print("terminal_obs_size:", np.size(terminal_obs))
+    print("terminal_obs_shape:", np.shape(terminal_obs))
+
+    print("terminal_discounts_size:", np.size(terminal_discounts))
+    print("terminal_discounts_shape:", np.shape(terminal_discounts))
+
+    print("next_obs_size:", np.size(next_obs))
+    print("next_obs_shape:", np.shape(next_obs))
         
-    #experiment(variant)
+    experiment(variant)
 
 if __name__ == "__main__":  
     main()

@@ -20,6 +20,7 @@ class InPlacePathSampler(object):
         self.policy = policy
 
         self.max_path_length = max_path_length
+        self.print_once = 0
 
     def start_worker(self):
         pass
@@ -38,9 +39,17 @@ class InPlacePathSampler(object):
         paths = []
         n_steps_total = 0
         n_trajs = 0
+
         while n_steps_total < max_samples and n_trajs < max_trajs:
             path = rollout(
                 self.env, policy, max_path_length=self.max_path_length, accum_context=accum_context)
+            
+            '''if self.print_once < 2:
+                #print(" *** Agent Infos: *** : ", path['agent_infos'])
+                #print(" *** Len Agent Infos: *** : ", len(path['agent_infos']))
+                #print(" *** Event Infos: *** : ", path['env_infos'].get('sparse_reward', 0))
+                self.print_once += 1'''
+
             # save the latent context that generated this trajectory
             path['context'] = policy.z.detach().cpu().numpy()
             paths.append(path)

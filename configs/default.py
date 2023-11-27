@@ -45,6 +45,9 @@ default_config = dict(
         num_exp_traj_eval=1, # how many exploration trajs to collect before beginning posterior sampling at test time
         recurrent=False, # recurrent or permutation-invariant encoder
         dump_eval_paths=False, # whether to save evaluation trajectories
+        task_paths = "/root/code/configs/cheetah_vel/env_cheetah_vel_train_task{}.pkl",
+        train_buffer_paths = "/root/code/configs/cheetah_vel/buffers_cheetah_vel_train_{}_sub_task_0.hdf5",
+        test_buffer_paths = "/root/code/configs/cheetah_vel/buffers_cheetah_vel_train_{}_sub_task_0.hdf5",
     ),
     util_params=dict(
         base_log_dir='output',

@@ -2,6 +2,7 @@ import os
 import abc
 from collections import OrderedDict
 import time
+import h5py
 
 import gtimer as gt
 import numpy as np
@@ -49,6 +50,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             render_eval_paths=False,
             dump_eval_paths=False,
             plotter=None,
+            task_paths="",
+            train_buffer_paths="",
+            test_buffer_paths=""
     ):
         """
         :param env: training env
@@ -58,6 +62,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         see default experiment config file for descriptions of the rest of the arguments
         """
+        self.offline_data = True
         self.log_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.AR = open(self.log_path + "/" + "Average_Reward.txt", "w")
         #self.summary_writer = SummaryWriter(self.tensorboard_log_path)
@@ -95,6 +100,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.render_eval_paths = render_eval_paths
         self.dump_eval_paths = dump_eval_paths
         self.plotter = plotter
+        self.task_paths = task_paths
+        self.train_buffer_paths = train_buffer_paths
+        self.test_buffer_paths = test_buffer_paths
 
         self.sampler = InPlacePathSampler(
             env=env,
@@ -172,13 +180,65 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             if it_ == 0:
                 print('collecting initial pool of data for train and eval')
                 # temp for evaluating
+                
                 for idx in self.train_tasks:
                     self.task_idx = idx
                     self.env.reset_task(idx)
-                    self.collect_data(self.num_initial_steps, 1, np.inf)
+
+                    if self.offline_data == True:
+                        print("**Saving Offline Data**")
+                        total_buffers = [self.train_buffer_paths.format(i) for i in range(len(self.train_tasks) + len(self.eval_tasks))]
+
+                        f = h5py.File(total_buffers[idx], 'r')
+                        #size = f['obs'].shape[0]
+                        size = 14000                        # To get initial_samples. Not overloading though
+                        stored = f['obs'].shape[0]
+                        skip = 7
+                        size //= skip 
+                        n_seed = min(stored, size * skip)
+                        chunk_size = n_seed
+                        mode = 'end'
+
+                        if mode == 'end':
+                            h5slice = slice(-chunk_size, stored)
+                        elif mode == 'middle':
+                            center = stored // 2
+                            h5slice = slice(center // 2 - chunk_size // 2,center // 2 + chunk_size // 2)
+                        elif mode == 'start':
+                            h5slice = slice(chunk_size)
+                        else:
+                            print("No such mode: ", mode)
+
+                        obs = f['obs'][h5slice][::skip]
+                        actions = f['actions'][h5slice][::skip]
+                        rewards = f['rewards'][h5slice][::skip]
+                        mc_rewards = f['mc_rewards'][h5slice][::skip]
+                        terminals = f['terminals'][h5slice][::skip]
+                        terminal_obs = f['terminal_obs'][h5slice][::skip]
+                        terminal_discounts = f['terminal_discounts'][h5slice][::skip]
+                        next_obs = f['next_obs'][h5slice][::skip]
+
+                        print("Observations Size - Take note: ", obs.shape)
+
+                        paths = [dict(
+                                    observations=obs,
+                                    actions=actions,
+                                    rewards=rewards,
+                                    next_observations=next_obs,
+                                    terminals=terminals,
+                                    agent_infos=np.array([{} for red in range(self.num_initial_steps)]),
+                                    env_infos=np.array([{} for red in range(self.num_initial_steps)]),
+                                    context=None
+                                )]
+                        self.collect_offline_data(paths, self.num_initial_steps, 1, np.inf)
+
+                    else:
+                        print("****  Collecting Initial data (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+                        self.collect_data(self.num_initial_steps, 1, np.inf)
+                        print("****  Collecting Initial data (IDX, Value_POST)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
-                print("[INIT] Collecting Data for Tasks Sample: ", i, "   Num_Tasks_Sample: ", self.num_tasks_sample)
+                print("[INIT] Collecting Data for Tasks Sample Numbering (Taking Randomly): ", i, "   Num_Tasks_Sample: ", self.num_tasks_sample)
                 idx = np.random.randint(len(self.train_tasks))
                 self.task_idx = idx
                 self.env.reset_task(idx)
@@ -186,13 +246,21 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
                 # collect some trajectories with z ~ prior
                 if self.num_steps_prior > 0:
+                    print("****  Collecting PRIOR data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
                     self.collect_data(self.num_steps_prior, 1, np.inf)
+                    print("****  Collecting PRIOR data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+
                 # collect some trajectories with z ~ posterior
                 if self.num_steps_posterior > 0:
+                    print("****  Collecting POSTERIOR data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
                     self.collect_data(self.num_steps_posterior, 1, self.update_post_train)
+                    print("****  Collecting POSTERIOR data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+
                 # even if encoder is trained only on samples from the prior, the policy needs to learn to handle z ~ posterior
                 if self.num_extra_rl_steps_posterior > 0:
+                    print("****  Collecting EXTRA RL data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
                     self.collect_data(self.num_extra_rl_steps_posterior, 1, self.update_post_train, add_to_enc_buffer=False)
+                    print("****  Collecting EXTRA RL data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
 
             print("[TRAINING] Iteration: ", self.iter, "/", self.num_iterations)
 
@@ -248,6 +316,37 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             if update_posterior_rate != np.inf:
                 context = self.sample_context(self.task_idx)
                 self.agent.infer_posterior(context)
+        self._n_env_steps_total += num_transitions
+        gt.stamp('sample')
+
+    def collect_offline_data(self, paths, n_samples, resample_z_rate, update_posterior_rate, add_to_enc_buffer=True):
+        '''
+        get trajectories from current env in batch mode with given policy
+        collect complete trajectories until the number of collected transitions >= num_samples
+
+        :param agent: policy to rollout
+        :param num_samples: total number of transitions to sample
+        :param resample_z_rate: how often to resample latent context z (in units of trajectories)
+        :param update_posterior_rate: how often to update q(z | c) from which z is sampled (in units of trajectories)
+        :param add_to_enc_buffer: whether to add collected data to encoder replay buffer
+        '''
+        # start from the prior
+        self.agent.clear_z()
+
+        num_transitions = 0
+        #while num_transitions < num_samples:
+        '''paths, n_samples = self.sampler.obtain_samples(max_samples=num_samples - num_transitions,
+                                                                max_trajs=update_posterior_rate,
+                                                                accum_context=False,
+                                                                resample=resample_z_rate)'''
+                        
+        num_transitions += n_samples
+        self.replay_buffer.add_paths(self.task_idx, paths)
+        if add_to_enc_buffer:
+            self.enc_replay_buffer.add_paths(self.task_idx, paths)
+        if update_posterior_rate != np.inf:
+            context = self.sample_context(self.task_idx)
+            self.agent.infer_posterior(context)
         self._n_env_steps_total += num_transitions
         gt.stamp('sample')
 

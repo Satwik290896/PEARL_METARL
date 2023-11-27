@@ -23,16 +23,44 @@ class SimpleReplayBuffer(ReplayBuffer):
         # self._terminals[i] = a terminal was received at time i
         self._terminals = np.zeros((max_replay_buffer_size, 1), dtype='uint8')
         self.clear()
+        self.print_once = 0
 
     def add_sample(self, observation, action, reward, terminal,
                    next_observation, **kwargs):
+        
+        if self.print_once < 2:
+            print("[add_sample] L3 Observatios Storing - Note it: ", self._top)
+    
         self._observations[self._top] = observation
         self._actions[self._top] = action
         self._rewards[self._top] = reward
         self._terminals[self._top] = terminal
         self._next_obs[self._top] = next_observation
-        self._sparse_rewards[self._top] = kwargs['env_info'].get('sparse_reward', 0)
+
+        '''if self.print_once < 2:
+            print("Observations Shape: ", observation.shape)
+            print("action Shape: ", action.shape)
+            print("reward Shape: ", reward.shape)
+            print("terminal Shape: ", terminal.shape)
+            print("next_observation Shape: ", next_observation.shape)
+            self.print_once += 1'''
+
+        if kwargs['env_info'] != None:
+            #if self.print_once < 2:
+                #print("Sparse Rewards BeforeShape: ", self._sparse_rewards[self._top].shape)
+            self._sparse_rewards[self._top] = kwargs['env_info'].get('sparse_reward', 0)
+            #if self.print_once < 2:
+                #print("Sparse Rewards: ", self._sparse_rewards[self._top])
+                #print("Sparse Rewards Shape: ", self._sparse_rewards[self._top].shape)
+                #self.print_once += 1
+        #else:
+            #print("Sparse Rewards ENV info is None")
+
         self._advance()
+
+        if self.print_once < 2:
+            print("L4 Observatios Storing - Note it: ", self._top)
+            self.print_once += 1
 
     def terminate_episode(self):
         # store the episode beginning once the episode is over

@@ -53,6 +53,7 @@ class MultiTaskReplayBuffer(object):
 
     def add_paths(self, task, paths):
         for path in paths:
+            print("L1 Observations Size - To take note: ", path['observations'].shape)
             self.task_buffers[task].add_path(path)
 
     def clear_buffer(self, task):
