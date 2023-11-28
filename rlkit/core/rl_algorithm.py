@@ -65,6 +65,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.offline_data = True
         self.log_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.AR = open(self.log_path + "/" + "Average_Reward.txt", "w")
+        self.AR_train_final = open(self.log_path + "/" + "Average_Reward_train_final.txt", "w")
+        self.AR_test_final = open(self.log_path + "/" + "Average_Reward_test_final.txt", "w")
+        self.AR_forward_vel_final = open(self.log_path + "/" + "Average_Reward_forward_vel_final.txt", "w")
+        self.AR_goal_vel_final = open(self.log_path + "/" + "Average_Reward_goal_vel_final.txt", "w")
+
         #self.summary_writer = SummaryWriter(self.tensorboard_log_path)
         self.env = env
         self.agent = agent
@@ -499,12 +504,23 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
     def _do_eval(self, indices, epoch):
         final_returns = []
         online_returns = []
+        forward_vel_returns = []
+        goal_vel_returns = []
         for idx in indices:
             all_rets = []
+            forward_vel = []
+            goal_vel = []
             for r in range(self.num_evals):
                 paths = self.collect_paths(idx, epoch, r)
+                #forward_vel, _goal_vel are specific o cheetah-vel.json environment (HalfCheetahVel) in rlkit.envs
+                forward_vel.append(self.env.forward_vel)
+                goal_vel.append(self.env._goal_vel)
                 all_rets.append([eval_util.get_average_returns([p]) for p in paths])
+
             final_returns.append(np.mean([a[-1] for a in all_rets]))
+            forward_vel_returns.append(np.mean(forward_vel))
+            goal_vel_returns.append(np.mean(goal_vel))
+
             # record online returns for the first n trajectories
             n = min([len(a) for a in all_rets])
             all_rets = [a[:n] for a in all_rets]
@@ -512,7 +528,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             online_returns.append(all_rets)
         n = min([len(t) for t in online_returns])
         online_returns = [t[:n] for t in online_returns]
-        return final_returns, online_returns
+        return final_returns, online_returns, forward_vel_returns, goal_vel_returns
 
     def evaluate(self, epoch):
         if self.eval_statistics is None:
@@ -555,15 +571,23 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             train_returns.append(eval_util.get_average_returns(paths))
         train_returns = np.mean(train_returns)
         #self.summary_writer.add_scalar("Average_Reward", train_returns, self.iter)
-        self.AR.write(str(self.iter) + "   " + str(train_returns) + "\n") 
+        self.AR.write(str(self.iter) + "   " + str(train_returns) + "   " + str(epoch) +"\n") 
         ### eval train tasks with on-policy data to match eval of test tasks
-        train_final_returns, train_online_returns = self._do_eval(indices, epoch)
+        train_final_returns, train_online_returns, __, __ = self._do_eval(indices, epoch)
+        self.AR_train_final.write(str(self.iter) + "   " + str(np.mean(train_final_returns)) + "   " + str(epoch) +"\n")
+        
         eval_util.dprint('train online returns')
         eval_util.dprint(train_online_returns)
 
         ### test tasks
         eval_util.dprint('evaluating on {} test tasks'.format(len(self.eval_tasks)))
-        test_final_returns, test_online_returns = self._do_eval(self.eval_tasks, epoch)
+        test_final_returns, test_online_returns, test_forward_vel_returns, test_goal_vel_returns = self._do_eval(self.eval_tasks, epoch)
+        self.AR_test_final.write(str(self.iter) + "   " + str(np.mean(test_final_returns)) + "   " + str(epoch) +"\n")
+
+        for id, tidx in enumerate(self.eval_tasks):
+            self.AR_forward_vel_final.write(str(self.iter) + "   " + str(tidx) + "   " + str(test_forward_vel_returns[id]) + "   " + str(epoch) +"\n")
+            self.AR_goal_vel_final.write(str(self.iter) + "   " + str(tidx) + "   " + str(test_goal_vel_returns[id]) + "   " + str(epoch) +"\n")
+
         eval_util.dprint('test online returns')
         eval_util.dprint(test_online_returns)
 

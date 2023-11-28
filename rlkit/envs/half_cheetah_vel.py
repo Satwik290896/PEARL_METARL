@@ -28,6 +28,7 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         self.tasks = self.sample_tasks(n_tasks)
         self._goal_vel = self.tasks[0].get('velocity', 0.0)
         self._goal = self._goal_vel
+        self.forward_vel = 0
         super(HalfCheetahVelEnv, self).__init__()
 
     def step(self, action):
@@ -36,6 +37,7 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         xposafter = self.model.data.qpos[0]
 
         forward_vel = (xposafter - xposbefore) / self.dt
+        self.forward_vel = forward_vel
         forward_reward = -1.0 * abs(forward_vel - self._goal_vel)
         ctrl_cost = 0.5 * 1e-1 * np.sum(np.square(action))
 
@@ -59,4 +61,5 @@ class HalfCheetahVelEnv(HalfCheetahEnv):
         self._task = self.tasks[idx]
         self._goal_vel = self._task['velocity']
         self._goal = self._goal_vel
+        self.forward_vel = 0
         self.reset()
