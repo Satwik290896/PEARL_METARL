@@ -45,8 +45,8 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
         print_once = 0
         print_once_v2 = 0
         if print_once_v2 < 1:
-            print("[add_path] L-m1 Observatios Storing - Note it: ")
-            print(path['observations'].shape)
+            #print("[add_path] L-m1 Observatios Storing - Note it: ")
+            #print(path['observations'].shape)
             print_once_v2 += 1
         
         for i, (
@@ -67,7 +67,7 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
             path["env_infos"],
         )):
             if print_once < 2:
-                print("[add_path] L2 Observatios Storing - Note it: ")
+                #print("[add_path] L2 Observatios Storing - Note it: ")
                 print_once += 1
             self.add_sample(
                 obs,

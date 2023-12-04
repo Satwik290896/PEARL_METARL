@@ -243,7 +243,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         print("****  Collecting Initial data (IDX, Value_POST)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
-                print("[INIT] Collecting Data for Tasks Sample Numbering (Taking Randomly): ", i, "   Num_Tasks_Sample: ", self.num_tasks_sample)
+                #print("[INIT] Collecting Data for Tasks Sample Numbering (Taking Randomly): ", i, "   Num_Tasks_Sample: ", self.num_tasks_sample)
                 idx = np.random.randint(len(self.train_tasks))
                 self.task_idx = idx
                 self.env.reset_task(idx)
@@ -251,21 +251,21 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
                 # collect some trajectories with z ~ prior
                 if self.num_steps_prior > 0:
-                    print("****  Collecting PRIOR data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+                    #print("****  Collecting PRIOR data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
                     self.collect_data(self.num_steps_prior, 1, np.inf)
-                    print("****  Collecting PRIOR data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+                    #print("****  Collecting PRIOR data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
 
                 # collect some trajectories with z ~ posterior
                 if self.num_steps_posterior > 0:
-                    print("****  Collecting POSTERIOR data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+                    #print("****  Collecting POSTERIOR data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
                     self.collect_data(self.num_steps_posterior, 1, self.update_post_train)
-                    print("****  Collecting POSTERIOR data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+                    #print("****  Collecting POSTERIOR data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
 
                 # even if encoder is trained only on samples from the prior, the policy needs to learn to handle z ~ posterior
                 if self.num_extra_rl_steps_posterior > 0:
-                    print("****  Collecting EXTRA RL data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+                    #print("****  Collecting EXTRA RL data to append (IDX, Value_Pre)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
                     self.collect_data(self.num_extra_rl_steps_posterior, 1, self.update_post_train, add_to_enc_buffer=False)
-                    print("****  Collecting EXTRA RL data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
+                    #print("****  Collecting EXTRA RL data to append (IDX, Value_Post)  *****  : ", idx, self.replay_buffer.task_buffers[idx]._top)
 
             print("[TRAINING] Iteration: ", self.iter, "/", self.num_iterations)
 
@@ -285,7 +285,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             gt.stamp('eval')
 
             self._end_epoch()
-            print("[END] Iteration: ", self.iter, "/", self.num_iterations)
+            #print("[END] Iteration: ", self.iter, "/", self.num_iterations)
 
 
     def pretrain(self):
