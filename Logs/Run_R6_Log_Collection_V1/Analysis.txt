@@ -1,0 +1,69 @@
+sai.vaddi@Sais-MacBook-Pro-3 Logs % python3 plot_data_velocity.py Run_R6_Log_Collection_V1 Average_Reward_forward_vel_final.txt Graph_velocity_T35.png 0
+Evaluation Tasks: 
+Task T 35
+10p of values are above the Goal_Velocity at Iteration:  4000
+25p of values are above the Goal_Velocity at Iteration:  4000
+50p of values are above the Goal_Velocity at Iteration:  5000
+70p of values are above the Goal_Velocity at Iteration:  54000
+80p of values are above the Goal_Velocity at Iteration:  54000
+90p of values are above the Goal_Velocity at Iteration:  57000
+98p of values are above the Goal_Velocity at Iteration:  61000
+100p of values are above the Goal_Velocity at Iteration:  61000
+Max number values:  100.0 p that are above the Goal_Velocity at Iteration:  61000
+Average of Last iterations around 100000 - percentage:  50.0
+
+
+sai.vaddi@Sais-MacBook-Pro-3 Logs % python3 plot_data_velocity.py Run_R6_Log_Collection_V1 Average_Reward_forward_vel_final.txt Graph_velocity_T36.png 1
+Evaluation Tasks: 
+Task T 36
+10p of values are above the Goal_Velocity at Iteration:  7000
+25p of values are above the Goal_Velocity at Iteration:  9000
+50p of values are above the Goal_Velocity at Iteration:  12000
+70p of values are above the Goal_Velocity at Iteration:  14000
+80p of values are above the Goal_Velocity at Iteration:  15000
+90p of values are above the Goal_Velocity at Iteration:  16000
+98p of values are above the Goal_Velocity at Iteration:  35000
+100p of values are above the Goal_Velocity at Iteration:  35000
+Max number values:  100.0 p that are above the Goal_Velocity at Iteration:  35000
+Average of Last iterations around 100000 - percentage:  60.0
+
+
+sai.vaddi@Sais-MacBook-Pro-3 Logs % python3 plot_data_velocity.py Run_R6_Log_Collection_V1 Average_Reward_forward_vel_final.txt Graph_velocity_T37.png 2
+Evaluation Tasks: 
+Task T 37
+10p of values are above the Goal_Velocity at Iteration:  10000
+25p of values are above the Goal_Velocity at Iteration:  15000
+50p of values are above the Goal_Velocity at Iteration:  15000
+70p of values are above the Goal_Velocity at Iteration:  19000
+80p of values are above the Goal_Velocity at Iteration:  19000
+90p of values are above the Goal_Velocity at Iteration:  20000
+98p of values are above the Goal_Velocity at Iteration:  20000
+100p of values are above the Goal_Velocity at Iteration:  20000
+Max number values:  100.0 p that are above the Goal_Velocity at Iteration:  20000
+Average of Last iterations around 100000 - percentage:  60.0
+
+
+sai.vaddi@Sais-MacBook-Pro-3 Logs % python3 plot_data_velocity.py Run_R6_Log_Collection_V1 Average_Reward_forward_vel_final.txt Graph_velocity_T38.png 3
+Evaluation Tasks: 
+Task T 38
+10p of values are above the Goal_Velocity at Iteration:  7000
+25p of values are above the Goal_Velocity at Iteration:  7000
+50p of values are above the Goal_Velocity at Iteration:  7000
+70p of values are above the Goal_Velocity at Iteration:  7000
+80p of values are above the Goal_Velocity at Iteration:  7000
+Max number values:  80.0 p that are above the Goal_Velocity at Iteration:  7000
+Average of Last iterations around 100000 - percentage:  30.0
+
+
+sai.vaddi@Sais-MacBook-Pro-3 Logs % python3 plot_data_velocity.py Run_R6_Log_Collection_V1 Average_Reward_forward_vel_final.txt Graph_velocity_T39.png 4
+Evaluation Tasks: 
+Task T 39
+10p of values are above the Goal_Velocity at Iteration:  6000
+25p of values are above the Goal_Velocity at Iteration:  7000
+50p of values are above the Goal_Velocity at Iteration:  7000
+70p of values are above the Goal_Velocity at Iteration:  7000
+Max number values:  70.0 p that are above the Goal_Velocity at Iteration:  7000
+Average of Last iterations around 100000 - percentage:  40.0
+
+
+

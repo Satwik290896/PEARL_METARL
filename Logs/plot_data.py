@@ -1,7 +1,11 @@
 import os
 import matplotlib.pyplot as plt
+import sys
 
-f = open("Average_Reward_OfflineData_CheetahVel_R2.txt","r")
+#print(sys.argv[1])
+os.chdir("./" + str(sys.argv[1]))
+f = open(str(sys.argv[2]) ,"r")
+
 X_Dom = []
 Y_Dom = []
 
@@ -13,4 +17,5 @@ for line in f.readlines():
 print(len(X_Dom))
 print(len(Y_Dom))
 plt.plot(X_Dom,Y_Dom)
-plt.savefig('Graph_R2.png')
+plt.ylim([-400,0])
+plt.savefig(str(sys.argv[3]))
