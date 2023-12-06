@@ -88,7 +88,9 @@ print("Average of Last iterations around 100000 - percentage: ", (Buckets[NUM_BU
     
 plt.figure()
 plt.bar((np.arange(1,NUM_BUCKETS+1))*BUCKET_SIZE*100, np.array(Buckets)*1000, width=BUCKET_SIZE*80)
-plt.title(str(sys.argv[4]))
+plt.title("Plot shows the training efficiency")
+plt.xlabel("NEpoch")
+plt.ylabel("No. Batch Epochs reach Goal")
 plt.savefig("Bar_Graph_Efficiency_T" +str(sys.argv[4]) + ".png")
 
 plt.figure()
