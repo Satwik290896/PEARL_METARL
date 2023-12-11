@@ -2,7 +2,7 @@
 
 on arxiv: http://arxiv.org/abs/1903.08254
 
-by Sai Satwik Vaddi
+by Sai Satwik Vaddi, Shunri Zheng
 
 > Deep reinforcement learning algorithms require large amounts of experience to learn an individual
 task. While in principle meta-reinforcement learning (meta-RL) algorithms enable agents to learn
