@@ -1,8 +1,8 @@
-# PEARL: Efficient Off-policy Meta-learning via Probabilistic Context Variables
+# PEARL for LLM
 
 on arxiv: http://arxiv.org/abs/1903.08254
 
-by Kate Rakelly*, Aurick Zhou*, Deirdre Quillen, Chelsea Finn, and Sergey Levine (UC Berkeley)
+by Sai Satwik Vaddi
 
 > Deep reinforcement learning algorithms require large amounts of experience to learn an individual
 task. While in principle meta-reinforcement learning (meta-RL) algorithms enable agents to learn
@@ -70,9 +70,3 @@ To evaluate a learned policy after training has concluded, run `sim_policy.py`.
 This script will run a given policy across a set of evaluation tasks and optionally generate a video of these trajectories.
 Rendering is offline and the video is saved to the experiment folder.
 
---------------------------------------
-#### Communication (slurp!)
-
-If you spot a bug or have a problem running the code, please open an issue.
-
-Please direct other correspondence to Kate Rakelly: rakelly@eecs.berkeley.edu
