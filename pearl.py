@@ -10,6 +10,7 @@ import inspect
 import sys
 import os
 import abc
+import time
 from collections import OrderedDict
 from numbers import Number
 
@@ -17,6 +18,136 @@ import gtimer as gt
 import torch.optim as optim
 from torch import nn as nn
 from torch.autograd import Variable
+from torch.nn import functional as F
+
+from normalizer import TorchFixedNormalizer
+from distributions import TanhNormal
+from path_builder import PathBuilder
+from in_place import InPlacePathSampler
+from env_replay_buffer import MultiTaskReplayBuffer
+
+LOG_SIG_MAX = 2
+LOG_SIG_MIN = -20
+
+
+#Eval Util
+def dprint(*args):
+    # hacky, but will do for now
+    if int(os.environ['DEBUG']) == 1:
+        print(args)
+
+
+def get_generic_path_information(paths, stat_prefix=''):
+    """
+    Get an OrderedDict with a bunch of statistic names and values.
+    """
+    statistics = OrderedDict()
+    returns = [sum(path["rewards"]) for path in paths]
+
+    rewards = np.vstack([path["rewards"] for path in paths])
+    statistics.update(create_stats_ordered_dict('Rewards', rewards,
+                                                stat_prefix=stat_prefix))
+    statistics.update(create_stats_ordered_dict('Returns', returns,
+                                                stat_prefix=stat_prefix))
+    actions = [path["actions"] for path in paths]
+    if len(actions[0].shape) == 1:
+        actions = np.hstack([path["actions"] for path in paths])
+    else:
+        actions = np.vstack([path["actions"] for path in paths])
+    statistics.update(create_stats_ordered_dict(
+        'Actions', actions, stat_prefix=stat_prefix
+    ))
+    statistics['Num Paths'] = len(paths)
+
+    return statistics
+
+
+def get_average_returns(paths):
+    returns = [sum(path["rewards"]) for path in paths]
+    return np.mean(returns)
+
+
+def create_stats_ordered_dict(
+        name,
+        data,
+        stat_prefix=None,
+        always_show_all_stats=True,
+        exclude_max_min=False,
+):
+    if stat_prefix is not None:
+        name = "{} {}".format(stat_prefix, name)
+    if isinstance(data, Number):
+        return OrderedDict({name: data})
+
+    if len(data) == 0:
+        return OrderedDict()
+
+    if isinstance(data, tuple):
+        ordered_dict = OrderedDict()
+        for number, d in enumerate(data):
+            sub_dict = create_stats_ordered_dict(
+                "{0}_{1}".format(name, number),
+                d,
+            )
+            ordered_dict.update(sub_dict)
+        return ordered_dict
+
+    if isinstance(data, list):
+        try:
+            iter(data[0])
+        except TypeError:
+            pass
+        else:
+            data = np.concatenate(data)
+
+    if (isinstance(data, np.ndarray) and data.size == 1
+            and not always_show_all_stats):
+        return OrderedDict({name: float(data)})
+
+    stats = OrderedDict([
+        (name + ' Mean', np.mean(data)),
+        (name + ' Std', np.std(data)),
+    ])
+    if not exclude_max_min:
+        stats[name + ' Max'] = np.max(data)
+        stats[name + ' Min'] = np.min(data)
+    return stats
+
+
+
+
+class LayerNorm(nn.Module):
+    """
+    Simple 1D LayerNorm.
+    """
+
+    def __init__(self, features, center=True, scale=False, eps=1e-6):
+        super().__init__()
+        self.center = center
+        self.scale = scale
+        self.eps = eps
+        if self.scale:
+            self.scale_param = nn.Parameter(torch.ones(features))
+        else:
+            self.scale_param = None
+        if self.center:
+            self.center_param = nn.Parameter(torch.zeros(features))
+        else:
+            self.center_param = None
+
+    def forward(self, x):
+        mean = x.mean(-1, keepdim=True)
+        std = x.std(-1, keepdim=True)
+        output = (x - mean) / (std + self.eps)
+        if self.scale:
+            output = output * self.scale_param
+        if self.center:
+            output = output + self.center_param
+        return output
+
+
+
+
 
 class Serializable(object):
 
@@ -309,8 +440,8 @@ class SerializablePolicy(Policy, metaclass=abc.ABCMeta):
         pass
 
 
-
-
+def identity(x):
+    return x
 
 class Mlp(PyTorchModule):
     def __init__(
@@ -1333,7 +1464,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 #forward_vel, _goal_vel are specific o cheetah-vel.json environment (HalfCheetahVel) in rlkit.envs
                 forward_vel.append(self.env.forward_vel)
                 goal_vel.append(self.env._goal_vel)
-                all_rets.append([eval_util.get_average_returns([p]) for p in paths])
+                all_rets.append([get_average_returns([p]) for p in paths])
 
             final_returns.append(np.mean([a[-1] for a in all_rets]))
             forward_vel_returns.append(np.mean(forward_vel))
@@ -1365,7 +1496,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         ### train tasks
         # eval on a subset of train tasks for speed
         indices = np.random.choice(self.train_tasks, len(self.eval_tasks))
-        eval_util.dprint('evaluating on {} train tasks'.format(len(indices)))
+        dprint('evaluating on {} train tasks'.format(len(indices)))
         ### eval train tasks with posterior sampled from the training replay buffer
         train_returns = []
         for idx in indices:
@@ -1386,7 +1517,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     sparse_rewards = np.stack(e['sparse_reward'] for e in p['env_infos']).reshape(-1, 1)
                     p['rewards'] = sparse_rewards
 
-            train_returns.append(eval_util.get_average_returns(paths))
+            train_returns.append(get_average_returns(paths))
         train_returns = np.mean(train_returns)
         #self.summary_writer.add_scalar("Average_Reward", train_returns, self.iter)
         self.AR.write(str(self.iter) + "   " + str(train_returns) + "   " + str(epoch) +"\n") 
@@ -1394,11 +1525,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         train_final_returns, train_online_returns, __, __ = self._do_eval(indices, epoch)
         self.AR_train_final.write(str(self.iter) + "   " + str(np.mean(train_final_returns)) + "   " + str(epoch) +"\n")
         
-        eval_util.dprint('train online returns')
-        eval_util.dprint(train_online_returns)
+        dprint('train online returns')
+        dprint(train_online_returns)
 
         ### test tasks
-        eval_util.dprint('evaluating on {} test tasks'.format(len(self.eval_tasks)))
+        dprint('evaluating on {} test tasks'.format(len(self.eval_tasks)))
         test_final_returns, test_online_returns, test_forward_vel_returns, test_goal_vel_returns = self._do_eval(self.eval_tasks, epoch)
         self.AR_test_final.write(str(self.iter) + "   " + str(np.mean(test_final_returns)) + "   " + str(epoch) +"\n")
 
@@ -1406,8 +1537,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             self.AR_forward_vel_final.write(str(self.iter) + "   " + str(tidx) + "   " + str(test_forward_vel_returns[id]) + "   " + str(epoch) +"\n")
             self.AR_goal_vel_final.write(str(self.iter) + "   " + str(tidx) + "   " + str(test_goal_vel_returns[id]) + "   " + str(epoch) +"\n")
 
-        eval_util.dprint('test online returns')
-        eval_util.dprint(test_online_returns)
+        dprint('test online returns')
+        dprint(test_online_returns)
 
         # save the final posterior
         self.agent.log_diagnostics(self.eval_statistics)
