@@ -25,6 +25,9 @@ from distributions import TanhNormal
 from path_builder import PathBuilder
 from in_place import InPlacePathSampler
 from env_replay_buffer import MultiTaskReplayBuffer
+import pytorch_util as ptu
+
+
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
@@ -220,18 +223,18 @@ class PyTorchModule(nn.Module, Serializable, metaclass=abc.ABCMeta):
         state_dict = self.state_dict()
         np_dict = OrderedDict()
         for key, tensor in state_dict.items():
-            np_dict[key] = get_numpy(tensor)
+            np_dict[key] = ptu.get_numpy(tensor)
         return np_dict
 
     def set_param_values_np(self, param_values):
         torch_dict = OrderedDict()
         for key, tensor in param_values.items():
-            torch_dict[key] = from_numpy(tensor)
+            torch_dict[key] = ptu.from_numpy(tensor)
         self.load_state_dict(torch_dict)
 
     def copy(self):
         copy = Serializable.clone(self)
-        copy_model_params_from_to(self, copy)
+        ptu.copy_model_params_from_to(self, copy)
         return copy
 
     def save_init_params(self, locals):
@@ -289,67 +292,22 @@ class PyTorchModule(nn.Module, Serializable, metaclass=abc.ABCMeta):
             return np_ify(outputs)
 
 
-_use_gpu = False
-device = None
 
 
-def set_gpu_mode(mode, gpu_id=0):
-    global _use_gpu
-    global device
-    global _gpu_id
-    _gpu_id = gpu_id
-    _use_gpu = mode
-    device = torch.device("cuda:0" if _use_gpu else "cpu")
-    if _use_gpu:
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(_gpu_id)
 
-
-def gpu_enabled():
-    return _use_gpu
-
-
-def from_numpy(*args, **kwargs):
-    return torch.from_numpy(*args, **kwargs).float().to(device)
-
-
-def get_numpy(tensor):
-    # not sure if I should do detach or not here
-    return tensor.to('cpu').detach().numpy()
-
-def zeros(*sizes, **kwargs):
-    return torch.zeros(*sizes, **kwargs).to(device)
-
-
-def ones(*sizes, **kwargs):
-    return torch.ones(*sizes, **kwargs).to(device)
 
 def torch_ify(np_array_or_other):
     if isinstance(np_array_or_other, np.ndarray):
-        return from_numpy(np_array_or_other)
+        return ptu.from_numpy(np_array_or_other)
     else:
         return np_array_or_other
 
 
 def np_ify(tensor_or_other):
     if isinstance(tensor_or_other, Variable):
-        return get_numpy(tensor_or_other)
+        return ptu.get_numpy(tensor_or_other)
     else:
         return tensor_or_other
-
-def copy_model_params_from_to(source, target):
-    for target_param, param in zip(target.parameters(), source.parameters()):
-        target_param.data.copy_(param.data)
-
-def fanin_init(tensor):
-    size = tensor.size()
-    if len(size) == 2:
-        fan_in = size[0]
-    elif len(size) > 2:
-        fan_in = np.prod(size[1:])
-    else:
-        raise Exception("Shape must be have dimension at least 2.")
-    bound = 1. / np.sqrt(fan_in)
-    return tensor.data.uniform_(-bound, bound)
 
 def create_stats_ordered_dict(
         name,
@@ -452,7 +410,7 @@ class Mlp(PyTorchModule):
             init_w=3e-3,
             hidden_activation=F.relu,
             output_activation=identity,
-            hidden_init=fanin_init,
+            hidden_init=ptu.fanin_init,
             b_init_value=0.1,
             layer_norm=False,
             layer_norm_kwargs=None,
@@ -599,7 +557,7 @@ class RecurrentEncoder(FlattenMlp):
             out = self.hidden_activation(out)
 
         out = out.view(task, seq, -1)
-        out, (hn, cn) = self.lstm(out, (self.hidden, torch.zeros(self.hidden.size()).to(device)))
+        out, (hn, cn) = self.lstm(out, (self.hidden, torch.zeros(self.hidden.size()).to(ptu.device)))
         self.hidden = hn
         # take the last hidden state to predict z
         out = out[:, -1, :]
@@ -788,7 +746,7 @@ def elem_or_tuple_to_variable(elem_or_tuple):
         return tuple(
             elem_or_tuple_to_variable(e) for e in elem_or_tuple
         )
-    return from_numpy(elem_or_tuple).float()
+    return ptu.from_numpy(elem_or_tuple).float()
 
 def filter_batch(np_batch):
     for k, v in np_batch.items():
@@ -838,11 +796,11 @@ class PEARLAgent(nn.Module):
         sample a new z from the prior
         '''
         # reset distribution over z to the prior
-        mu = zeros(num_tasks, self.latent_dim)
+        mu = ptu.zeros(num_tasks, self.latent_dim)
         if self.use_ib:
-            var = ones(num_tasks, self.latent_dim)
+            var = ptu.ones(num_tasks, self.latent_dim)
         else:
-            var = zeros(num_tasks, self.latent_dim)
+            var = ptu.zeros(num_tasks, self.latent_dim)
         self.z_means = mu
         self.z_vars = var
         # sample a new z from the prior
@@ -867,11 +825,11 @@ class PEARLAgent(nn.Module):
             r = info['sparse_reward']
             #print("Update r:", r)
         
-        o = from_numpy(o[None, None, ...])
-        a = from_numpy(a[None, None, ...])
-        r = from_numpy(np.array(r)[None, None, ...])
+        o = ptu.from_numpy(o[None, None, ...])
+        a = ptu.from_numpy(a[None, None, ...])
+        r = ptu.from_numpy(np.array(r)[None, None, ...])
         #r = from_numpy(np.array([r])[None, None, ...])
-        no = from_numpy(no[None, None, ...])
+        no = ptu.from_numpy(no[None, None, ...])
 
         if self.use_next_obs_in_context:
             data = torch.cat([o, a, r, no], dim=2)
@@ -885,7 +843,7 @@ class PEARLAgent(nn.Module):
 
     def compute_kl_div(self):
         ''' compute KL( q(z|c) || r(z) ) '''
-        prior = torch.distributions.Normal(zeros(self.latent_dim), ones(self.latent_dim))
+        prior = torch.distributions.Normal(ptu.zeros(self.latent_dim), ptu.ones(self.latent_dim))
         posteriors = [torch.distributions.Normal(mu, torch.sqrt(var)) for mu, var in zip(torch.unbind(self.z_means), torch.unbind(self.z_vars))]
         kl_divs = [torch.distributions.kl.kl_divergence(post, prior) for post in posteriors]
         kl_div_sum = torch.sum(torch.stack(kl_divs))
@@ -918,7 +876,7 @@ class PEARLAgent(nn.Module):
     def get_action(self, obs, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''
         z = self.z
-        obs = from_numpy(obs[None])
+        obs = ptu.from_numpy(obs[None])
         in_ = torch.cat([obs, z], dim=1)
         return self.policy.get_action(in_, deterministic=deterministic)
 
@@ -947,8 +905,8 @@ class PEARLAgent(nn.Module):
         '''
         adds logging data about encodings to eval_statistics
         '''
-        z_mean = np.mean(np.abs(get_numpy(self.z_means[0])))
-        z_sig = np.mean(get_numpy(self.z_vars[0]))
+        z_mean = np.mean(np.abs(ptu.get_numpy(self.z_means[0])))
+        z_sig = np.mean(ptu.get_numpy(self.z_vars[0]))
         eval_statistics['Z mean eval'] = z_mean
         eval_statistics['Z variance eval'] = z_sig
 
@@ -1835,37 +1793,37 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
             # this way, these statistics are only computed for one batch.
             self.eval_statistics = OrderedDict()
             if self.use_information_bottleneck:
-                z_mean = np.mean(np.abs(get_numpy(self.agent.z_means[0])))
-                z_sig = np.mean(get_numpy(self.agent.z_vars[0]))
+                z_mean = np.mean(np.abs(ptu.get_numpy(self.agent.z_means[0])))
+                z_sig = np.mean(ptu.get_numpy(self.agent.z_vars[0]))
                 self.eval_statistics['Z mean train'] = z_mean
                 self.eval_statistics['Z variance train'] = z_sig
-                self.eval_statistics['KL Divergence'] = get_numpy(kl_div)
-                self.eval_statistics['KL Loss'] = get_numpy(kl_loss)
+                self.eval_statistics['KL Divergence'] = ptu.get_numpy(kl_div)
+                self.eval_statistics['KL Loss'] = ptu.get_numpy(kl_loss)
 
-            self.eval_statistics['QF Loss'] = np.mean(get_numpy(qf_loss))
-            self.eval_statistics['VF Loss'] = np.mean(get_numpy(vf_loss))
-            self.eval_statistics['Policy Loss'] = np.mean(get_numpy(
+            self.eval_statistics['QF Loss'] = np.mean(ptu.get_numpy(qf_loss))
+            self.eval_statistics['VF Loss'] = np.mean(ptu.get_numpy(vf_loss))
+            self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
                 policy_loss
             ))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Q Predictions',
-                get_numpy(q1_pred),
+                ptu.get_numpy(q1_pred),
             ))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'V Predictions',
-                get_numpy(v_pred),
+                ptu.get_numpy(v_pred),
             ))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Log Pis',
-                get_numpy(log_pi),
+                ptu.get_numpy(log_pi),
             ))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Policy mu',
-                get_numpy(policy_mean),
+                ptu.get_numpy(policy_mean),
             ))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Policy log std',
-                get_numpy(policy_log_std),
+                ptu.get_numpy(policy_log_std),
             ))
 
     def get_epoch_snapshot(self, epoch):
@@ -1879,14 +1837,6 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
             context_encoder=self.agent.context_encoder.state_dict(),
         )
         return snapshot
-
-
-
-
-
-
-
-
 
 
 
@@ -1964,8 +1914,8 @@ def experiment(variant):
         policy.load_state_dict(torch.load(os.path.join(path, 'policy.pth')))
 
     # optional GPU mode
-    set_gpu_mode(variant['util_params']['use_gpu'], variant['util_params']['gpu_id'])
-    if gpu_enabled():
+    ptu.set_gpu_mode(variant['util_params']['use_gpu'], variant['util_params']['gpu_id'])
+    if ptu.gpu_enabled():
         algorithm.to()
 
     # debugging triggers a lot of printing and logs to a debug directory

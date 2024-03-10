@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Variable
 
-import rlkit.torch.pytorch_util as ptu
+import pytorch_util as ptu
 
 
 try:
