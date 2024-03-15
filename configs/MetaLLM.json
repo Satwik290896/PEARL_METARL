@@ -1,0 +1,27 @@
+{
+    "env_name": "metallm",
+    "n_train_tasks": 35,
+    "n_eval_tasks": 5,
+    "env_params": {
+        "n_tasks": 40
+    }
+    ,
+    "algo_params": {
+        "num_initial_steps": 2000,
+        "num_steps_prior": 400,
+        "num_steps_posterior": 0,
+        "num_extra_rl_steps_posterior": 600,
+        "num_evals": 1,
+        "num_steps_per_eval": 600,
+        "num_exp_traj_eval": 2,
+        "embedding_batch_size": 100,
+        "embedding_mini_batch_size": 100,
+        "task_paths": "/root/code/configs/metallm/task_{}.pkl",
+        "train_buffer_paths": "/root/code/configs/metallm/dataset_{}.h5",
+        "test_buffer_paths": "/root/code/configs/metallm/dataset_{}.h5"
+    },
+    "task_paths": "/root/code/configs/metallm/task_{}.pkl",
+    "train_buffer_paths": "/root/code/configs/metallm/dataset_{}.h5",
+    "test_buffer_paths": "/root/code/configs/metallm/dataset_{}.h5"
+
+}

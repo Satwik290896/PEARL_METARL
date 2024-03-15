@@ -21,11 +21,14 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 
 from normalizer import TorchFixedNormalizer
+from wrappers import NormalizedBoxEnv
+from wrappers import Serializable
 from distributions import TanhNormal
 from path_builder import PathBuilder
 from in_place import InPlacePathSampler
 from env_replay_buffer import MultiTaskReplayBuffer
 import pytorch_util as ptu
+from configs.default import default_config
 
 
 
@@ -147,69 +150,6 @@ class LayerNorm(nn.Module):
         if self.center:
             output = output + self.center_param
         return output
-
-
-
-
-
-class Serializable(object):
-
-    def __init__(self, *args, **kwargs):
-        self.__args = args
-        self.__kwargs = kwargs
-
-    def quick_init(self, locals_):
-        if getattr(self, "_serializable_initialized", False):
-            return
-        if sys.version_info >= (3, 0):
-            spec = inspect.getfullargspec(self.__init__)
-            # Exclude the first "self" parameter
-            if spec.varkw:
-                kwargs = locals_[spec.varkw].copy()
-            else:
-                kwargs = dict()
-            if spec.kwonlyargs:
-                for key in spec.kwonlyargs:
-                    kwargs[key] = locals_[key]
-        else:
-            spec = inspect.getargspec(self.__init__)
-            if spec.keywords:
-                kwargs = locals_[spec.keywords]
-            else:
-                kwargs = dict()
-        if spec.varargs:
-            varargs = locals_[spec.varargs]
-        else:
-            varargs = tuple()
-        in_order_args = [locals_[arg] for arg in spec.args][1:]
-        self.__args = tuple(in_order_args) + varargs
-        self.__kwargs = kwargs
-        setattr(self, "_serializable_initialized", True)
-
-    def __getstate__(self):
-        return {"__args": self.__args, "__kwargs": self.__kwargs}
-
-    def __setstate__(self, d):
-        # convert all __args to keyword-based arguments
-        if sys.version_info >= (3, 0):
-            spec = inspect.getfullargspec(self.__init__)
-        else:
-            spec = inspect.getargspec(self.__init__)
-        in_order_args = spec.args[1:]
-        out = type(self)(**dict(zip(in_order_args, d["__args"]), **d["__kwargs"]))
-        self.__dict__.update(out.__dict__)
-
-    @classmethod
-    def clone(cls, obj, **kwargs):
-        assert isinstance(obj, Serializable)
-        d = obj.__getstate__()
-        d["__kwargs"] = dict(d["__kwargs"], **kwargs)
-        out = type(obj).__new__(type(obj))
-        out.__setstate__(d)
-        return out
-
-
-
 
 class PyTorchModule(nn.Module, Serializable, metaclass=abc.ABCMeta):
 
@@ -1936,5 +1876,91 @@ def experiment(variant):
     algorithm.train()
 
 
-if __name__=="__main__":
-    experiment()
+def deep_update_dict(fr, to):
+    ''' update dict of dicts with new values '''
+    # assume dicts have same keys
+    for k, v in fr.items():
+        if type(v) is dict:
+            deep_update_dict(v, to[k])
+        else:
+            to[k] = v
+    return to
+
+
+@click.command()
+@click.argument('config', default=None)
+@click.option('--gpu', default=0)
+@click.option('--docker', is_flag=True, default=False)
+@click.option('--debug', is_flag=True, default=False)
+def main(config, gpu, docker, debug):
+
+    variant = default_config
+    if config:
+        with open(os.path.join(config)) as f:
+            exp_params = json.load(f)
+        variant = deep_update_dict(exp_params, variant)
+    variant['util_params']['gpu_id'] = gpu
+
+    inner_buffers = [variant['train_buffer_paths'].format(idx) for idx in range(variant['n_train_tasks'])]
+    outer_buffers = [variant['train_buffer_paths'].format(idx) for idx in range(variant['n_train_tasks'])]
+    test_buffers = [variant['test_buffer_paths'].format(idx) for idx in range(variant['n_train_tasks'], variant['n_train_tasks'] + variant['n_eval_tasks'])]
+    
+    f = h5py.File(test_buffers[0], 'r')
+    #size = f['obs'].shape[0]
+    size = 14000                        # To get initial_samples. Not overloading though
+    stored = f['obs'].shape[0]
+    skip = 7
+    size //= skip 
+    n_seed = min(stored, size * skip)
+    chunk_size = n_seed
+    mode = 'end'
+
+    if mode == 'end':
+        h5slice = slice(-chunk_size, stored)
+    elif mode == 'middle':
+        center = stored // 2
+        h5slice = slice(center // 2 - chunk_size // 2,center // 2 + chunk_size // 2)
+    elif mode == 'start':
+        h5slice = slice(chunk_size)
+    else:
+        print("No such mode: ", mode)
+
+    obs = f['obs'][h5slice][::skip]
+    actions = f['actions'][h5slice][::skip]
+    rewards = f['rewards'][h5slice][::skip]
+    mc_rewards = f['mc_rewards'][h5slice][::skip]
+    terminals = f['terminals'][h5slice][::skip]
+    terminal_obs = f['terminal_obs'][h5slice][::skip]
+    terminal_discounts = f['terminal_discounts'][h5slice][::skip]
+    next_obs = f['next_obs'][h5slice][::skip]
+
+    print(type(obs))
+    print("obs_size:", np.size(obs))
+    print("obs_shape:", np.shape(obs))
+
+    print("actions_size:", np.size(actions))
+    print("actions_shape:", np.shape(actions))
+
+    print("rewards_size:", np.size(rewards))
+    print("rewards_shape:", np.shape(rewards))
+
+    print("mc_rewards_size:", np.size(mc_rewards))
+    print("mc_rewards_shape:", np.shape(mc_rewards))
+
+    print("terminals_size:", np.size(terminals))
+    print("terminals_shape:", np.shape(terminals))
+
+    print("terminal_obs_size:", np.size(terminal_obs))
+    print("terminal_obs_shape:", np.shape(terminal_obs))
+
+    print("terminal_discounts_size:", np.size(terminal_discounts))
+    print("terminal_discounts_shape:", np.shape(terminal_discounts))
+
+    print("next_obs_size:", np.size(next_obs))
+    print("next_obs_shape:", np.shape(next_obs))
+        
+    experiment(variant)
+
+if __name__ == "__main__":  
+    main()
+
