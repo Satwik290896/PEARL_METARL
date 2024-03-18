@@ -1,7 +1,6 @@
 import numpy as np
-from gym import Env
-from gym.spaces import Box
-import mujoco_py
+from rand_param_envs.gym import Env
+from rand_param_envs.gym.spaces import Box
 import sys
 import inspect
 
@@ -191,7 +190,7 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
     def __getattr__(self, attrname):
         return getattr(self._wrapped_env, attrname)
 
-
+'''
 class CameraWrapper(object):
 
     def __init__(self, env,  *args, **kwargs):
@@ -218,3 +217,4 @@ class CameraWrapper(object):
 
     def __getattr__(self, attrname):
         return getattr(self._wrapped_env, attrname)
+'''

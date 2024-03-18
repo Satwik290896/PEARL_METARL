@@ -5,6 +5,7 @@ import numpy as np
 import click
 import json
 import torch
+import pickle
 
 import inspect
 import sys
@@ -29,6 +30,7 @@ from in_place import InPlacePathSampler
 from env_replay_buffer import MultiTaskReplayBuffer
 import pytorch_util as ptu
 from configs.default import default_config
+from env import *
 
 
 
@@ -1786,7 +1788,15 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
 def experiment(variant):
 
     # create multi-task environment and sample tasks
-    env = NormalizedBoxEnv(ENVS[variant['env_name']](**variant['env_params']))
+    tasks = []
+    for task_idx in (range(variant["n_train_tasks"] + variant["n_eval_tasks"])):
+        with open(variant["task_paths"].format(task_idx), 'rb') as f:
+            task_info = pickle.load(f)
+            # assert len(task_info) == 1, f'Unexpected task info: {task_info}'
+            tasks.append(task_info)
+
+    (variant['env_params'])['tasks'] = tasks
+    env = NormalizedBoxEnv(MetaLLM(**variant['env_params']))
     tasks = env.get_all_task_idx()
     print("All Tasks: ", tasks)
     obs_dim = int(np.prod(env.observation_space.shape))  #20 for cheetah-vel

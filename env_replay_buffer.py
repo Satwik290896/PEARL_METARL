@@ -1,6 +1,6 @@
 import numpy as np
 
-from gym.spaces import Box, Discrete, Tuple
+from rand_param_envs.gym.spaces import Box, Discrete, Tuple
 import abc
 
 

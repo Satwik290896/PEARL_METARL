@@ -1,5 +1,5 @@
 {
-    "env_name": "metallm",
+    "env_name": "MetaLLM",
     "n_train_tasks": 35,
     "n_eval_tasks": 5,
     "env_params": {
@@ -16,12 +16,12 @@
         "num_exp_traj_eval": 2,
         "embedding_batch_size": 100,
         "embedding_mini_batch_size": 100,
-        "task_paths": "/root/code/configs/metallm/task_{}.pkl",
-        "train_buffer_paths": "/root/code/configs/metallm/dataset_{}.h5",
-        "test_buffer_paths": "/root/code/configs/metallm/dataset_{}.h5"
+        "task_paths": "./configs/metallm/tasks/task_{}.pkl",
+        "train_buffer_paths": "./configs/metallm/h5datasets/dataset_{}.h5",
+        "test_buffer_paths": "./configs/metallm/h5datasets/dataset_{}.h5"
     },
-    "task_paths": "/root/code/configs/metallm/task_{}.pkl",
-    "train_buffer_paths": "/root/code/configs/metallm/dataset_{}.h5",
-    "test_buffer_paths": "/root/code/configs/metallm/dataset_{}.h5"
+    "task_paths": "./configs/metallm/tasks/task_{}.pkl",
+    "train_buffer_paths": "./configs/metallm/h5datasets/dataset_{}.h5",
+    "test_buffer_paths": "./configs/metallm/h5datasets/dataset_{}.h5"
 
 }
