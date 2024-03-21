@@ -16,7 +16,7 @@ class MetaLLM(gym.Env):
         self.set_task_idx(0)
         self._max_episode_steps = 3
         self._action_space = spaces.Discrete(26)  # 26 possible letters A-Z
-        self.observation_space = spaces.MultiDiscrete([26] * 3) 
+        self.observation_space = spaces.MultiDiscrete([[1,26]] * 3) 
         self.goal_words = self._task['goal_words']
         self.whole_words = self._task['whole_words']
         self.word_length = self._task['word_length']
@@ -33,6 +33,9 @@ class MetaLLM(gym.Env):
         self.reset()
 
     def set_task_idx(self, idx):
+        self.set_task(self.tasks[idx])
+    
+    def reset_task(self, idx):
         self.set_task(self.tasks[idx])
 
     def step(self, action):
@@ -145,6 +148,11 @@ class MetaLLM(gym.Env):
             data['terminal_obs'].extend(terminal_obs)
             data['terminals'].extend([x[4] for x in episode_data])
         return data
+    
+
+    def get_all_task_idx(self):
+        return range(len(self.tasks))
+
     @property
     def observation_space(self):
         return self.__observation_space

@@ -166,7 +166,7 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
         self._obs_std = d["_obs_std"]
         self._reward_scale = d["_reward_scale"]
 
-    def step(self, action):
+    '''def step(self, action):
         lb = self._wrapped_env.action_space.low
         ub = self._wrapped_env.action_space.high
         scaled_action = lb + (action + 1.) * 0.5 * (ub - lb)
@@ -176,7 +176,7 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
         next_obs, reward, done, info = wrapped_step
         if self._should_normalize:
             next_obs = self._apply_normalize_obs(next_obs)
-        return next_obs, reward * self._reward_scale, done, info
+        return next_obs, reward * self._reward_scale, done, info'''
 
     def __str__(self):
         return "Normalized: %s" % self._wrapped_env

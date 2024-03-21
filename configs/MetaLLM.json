@@ -20,6 +20,9 @@
         "train_buffer_paths": "./configs/metallm/h5datasets/dataset_{}.h5",
         "test_buffer_paths": "./configs/metallm/h5datasets/dataset_{}.h5"
     },
+    "util_params": {
+        "use_gpu":false
+    },
     "task_paths": "./configs/metallm/tasks/task_{}.pkl",
     "train_buffer_paths": "./configs/metallm/h5datasets/dataset_{}.h5",
     "test_buffer_paths": "./configs/metallm/h5datasets/dataset_{}.h5"

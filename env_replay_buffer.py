@@ -1,6 +1,6 @@
 import numpy as np
 
-from rand_param_envs.gym.spaces import Box, Discrete, Tuple
+from rand_param_envs.gym.spaces import Box, Discrete, Tuple, MultiDiscrete
 import abc
 
 
@@ -268,6 +268,8 @@ def get_dim(space):
         return space.low.size
     elif isinstance(space, Discrete):
         return space.n
+    elif isinstance(space, MultiDiscrete):
+        return space.shape
     elif isinstance(space, Tuple):
         return sum(get_dim(subspace) for subspace in space.spaces)
     elif hasattr(space, 'flat_dim'):
@@ -275,7 +277,7 @@ def get_dim(space):
     else:
         # import OldBox here so it is not necessary to have rand_param_envs 
         # installed if not running the rand_param envs
-        from gym.spaces.box import Box as OldBox
+        from rand_param_envs.gym.spaces.box import Box as OldBox
         if isinstance(space, OldBox):
             return space.low.size
         else:

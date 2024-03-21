@@ -818,7 +818,9 @@ class PEARLAgent(nn.Module):
     def get_action(self, obs, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''
         z = self.z
-        obs = ptu.from_numpy(obs[None])
+        print(f"PEARLAgent:obs(): {obs}, {type(obs)}")
+        #obs = ptu.from_numpy(obs[None])
+        obs = ptu.from_numpy(np.array(obs)[None])
         in_ = torch.cat([obs, z], dim=1)
         return self.policy.get_action(in_, deterministic=deterministic)
 
@@ -910,7 +912,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         see default experiment config file for descriptions of the rest of the arguments
         """
         self.offline_data = True
-        self.log_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        #self.log_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.log_path = os.getcwd()
         self.AR = open(self.log_path + "/" + "Average_Reward.txt", "w")
         self.AR_train_final = open(self.log_path + "/" + "Average_Reward_train_final.txt", "w")
         self.AR_test_final = open(self.log_path + "/" + "Average_Reward_test_final.txt", "w")
@@ -1796,7 +1799,8 @@ def experiment(variant):
             tasks.append(task_info)
 
     (variant['env_params'])['tasks'] = tasks
-    env = NormalizedBoxEnv(MetaLLM(**variant['env_params']))
+    #env = NormalizedBoxEnv(MetaLLM(**variant['env_params']))
+    env = MetaLLM(**variant['env_params'])
     tasks = env.get_all_task_idx()
     print("All Tasks: ", tasks)
     obs_dim = int(np.prod(env.observation_space.shape))  #20 for cheetah-vel
