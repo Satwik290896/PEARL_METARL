@@ -120,7 +120,8 @@ class SimpleReplayBuffer(ReplayBuffer):
         
         if self.print_once < 2:
             print("[add_sample] L3 Observatios Storing - Note it: ", self._top)
-    
+
+        #print(f"[add_sample] L3 Observatios Storing - Note it: {self._top},  (observation): {observation}, (action): {action}, reward: {reward}")
         self._observations[self._top] = observation
         self._actions[self._top] = action
         self._rewards[self._top] = reward

@@ -6,6 +6,7 @@ import click
 import json
 import torch
 import pickle
+import traceback
 
 import inspect
 import sys
@@ -413,7 +414,7 @@ class FlattenMlp(Mlp):
     """
 
     def forward(self, *inputs, **kwargs):
-        #print(f"FlattenMlp(): forward(): inputs = {inputs}")
+        print(f"FlattenMlp(): forward(): inputs = {[idx.size() for idx in inputs]}")
         flat_inputs = torch.cat(inputs, dim=1)
         return super().forward(flat_inputs, **kwargs)
 
@@ -613,8 +614,14 @@ class MetaLLMPolicy(Mlp, ExplorationPolicy):
         pre_tanh_value = None
         print(f"MetaLLMPolicy(): mean: {mean}, size: {mean.size()}")
         #action = (torch.argmax(torch.nn.functional.log_softmax(mean)) + 1).view([1,1])
-        action = (torch.argmax(torch.nn.functional.log_softmax(mean)))
-        print(f"MetaLLMPolicy(): pre-action: {(torch.nn.functional.log_softmax(mean)).size()}, pre-action(tanh): {(torch.tanh(mean)).size()}, action: {action}")
+        #action = (torch.argmax(torch.nn.functional.log_softmax(torch.sum(mean, 0))))
+        mean_size = mean.size()
+        action = (torch.argmax(torch.nn.functional.log_softmax(mean),1))
+        action_size = action.size()[0]
+        action.resize_(mean_size[0],1)
+        
+        #action = (torch.argmax(torch.nn.functional.log_softmax(mean),1))
+        print(f"MetaLLMPolicy(): pre-action: {(action).size()}, pre-action(tanh): {(torch.tanh(mean)).size()}, action: {action}")
         return (
             action, mean, log_std, log_prob, expected_log_prob, std,
             mean_action_log_prob, pre_tanh_value,
@@ -816,6 +823,7 @@ class PEARLAgent(nn.Module):
                  **kwargs
     ):
         super().__init__()
+        print("PEARLAgent(): Init(): Am I being Called?")
         self.latent_dim = latent_dim
 
         self.context_encoder = context_encoder
@@ -1759,12 +1767,16 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
 
         num_tasks = len(indices)
 
+        #print(f"PEARLSoftActorCritic(): _take_step(): indices = {indices}")
         # data is (task, batch, feat)
         obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
 
         print(f"PEARLSoftActorCritic(): _take_step(): agent = {self.agent}")
+        #print(f"PEARLSoftActorCritic(): _take_step(): obs = {obs}, size = {obs.size()}")
+        #print(f"PEARLSoftActorCritic(): _take_step(): context = {context}, size = {context.size()}")
         # run inference in networks
         policy_outputs, task_z = self.agent(obs, context)
+        #traceback.print_stack()
         new_actions, policy_mean, policy_log_std, log_pi = policy_outputs[:4]
         print(f"PEARLSoftActorCritic(): _take_step():new_actions = {new_actions}")
 
