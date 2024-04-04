@@ -40,8 +40,10 @@ def rollout(env, agent, max_path_length=np.inf, accum_context=True, animated=Fal
         env.render()
     while path_length < max_path_length:
         a, agent_info = agent.get_action(o)
-        next_o, r, d, env_info = env.step(a[0][0])
+        a_real = agent.get_realaction(a)
+        next_o, r, d, env_info = env.step(a_real[0][0])
         # update the agent's current context
+        #Context encoder will be used and expects an input of size 30 (26+3+1)
         if accum_context:
             agent.update_context([o, a, r, next_o, d, env_info])
         observations.append(o)

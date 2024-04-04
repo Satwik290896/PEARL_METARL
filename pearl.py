@@ -248,10 +248,10 @@ def torch_ify(np_array_or_other):
 
 def np_ify(tensor_or_other):
     if isinstance(tensor_or_other, Variable):
-        print(f"np_ify(): is_instance? converting to numpy")
+        #print(f"np_ify(): is_instance? converting to numpy")
         return ptu.get_numpy(tensor_or_other)
     else:
-        print(f"np_ify(): is_instance? Leaving it as it is")
+        #print(f"np_ify(): is_instance? Leaving it as it is")
         return tensor_or_other
 
 def create_stats_ordered_dict(
@@ -265,7 +265,8 @@ def create_stats_ordered_dict(
         name = "{} {}".format(stat_prefix, name)
     if isinstance(data, Number):
         return OrderedDict({name: data})
-
+    
+    #print(f"create_stats_ordered_dict(): data: {data}, {type(data)}")
     if len(data) == 0:
         return OrderedDict()
 
@@ -414,8 +415,10 @@ class FlattenMlp(Mlp):
     """
 
     def forward(self, *inputs, **kwargs):
-        print(f"FlattenMlp(): forward(): inputs = {[idx.size() for idx in inputs]}")
+        #print(f"FlattenMlp(): forward(): inputs = {[idx.size() for idx in inputs]}")
         flat_inputs = torch.cat(inputs, dim=1)
+        #print(f"FlattenMlp(): forward(): flat_inputs() = {flat_inputs.size()}")
+
         return super().forward(flat_inputs, **kwargs)
 
 
@@ -576,13 +579,23 @@ class MetaLLMPolicy(Mlp, ExplorationPolicy):
 
     def get_action(self, obs, deterministic=False):
         actions = self.get_actions(obs, deterministic=deterministic)
-        print(f"MetaLLMPolicy(): get_action: {actions}, {type(actions)}")
+        #print(f"MetaLLMPolicy(): get_action: {actions}, {type(actions)}")
         return actions, {}
 
     @torch.no_grad()
     def get_actions(self, obs, deterministic=False):
         outputs = self.forward(obs, deterministic=deterministic)[0]
         return np_ify(outputs)
+
+    def unpack_action(self, action_tensor):
+        action = (np.argmax(action_tensor,1))
+        #print(f"unpack_Action(): action = {action}, {np.size(action)}")
+        
+        action_size = np.size(action)
+        action = np.resize(action, [action_size,1])
+        #print(f"[2]unpack_Action(): action = {action}, {np.size(action)}")
+        #raise RuntimeError("For Fun")
+        return action
 
     def forward(
             self,
@@ -608,20 +621,20 @@ class MetaLLMPolicy(Mlp, ExplorationPolicy):
             std = self.std
             log_std = self.log_std
 
-        log_prob = None
+        log_prob = torch.tensor([])
         expected_log_prob = None
         mean_action_log_prob = None
-        pre_tanh_value = None
-        print(f"MetaLLMPolicy(): mean: {mean}, size: {mean.size()}")
+        pre_tanh_value = np.array([[0]])
+        #print(f"MetaLLMPolicy(): mean: {mean}, size: {mean.size()}")
         #action = (torch.argmax(torch.nn.functional.log_softmax(mean)) + 1).view([1,1])
         #action = (torch.argmax(torch.nn.functional.log_softmax(torch.sum(mean, 0))))
         mean_size = mean.size()
-        action = (torch.argmax(torch.nn.functional.log_softmax(mean),1))
-        action_size = action.size()[0]
-        action.resize_(mean_size[0],1)
-        
         #action = (torch.argmax(torch.nn.functional.log_softmax(mean),1))
-        print(f"MetaLLMPolicy(): pre-action: {(action).size()}, pre-action(tanh): {(torch.tanh(mean)).size()}, action: {action}")
+        #action_size = action.size()[0]
+        #action.resize_(mean_size[0],1)
+        action = torch.nn.functional.log_softmax(mean)
+        #action = (torch.argmax(torch.nn.functional.log_softmax(mean),1))
+        #print(f"MetaLLMPolicy(): pre-action: {(action).size()}, pre-action(tanh): {(torch.tanh(mean)).size()}, action: {action}")
         return (
             action, mean, log_std, log_prob, expected_log_prob, std,
             mean_action_log_prob, pre_tanh_value,
@@ -877,11 +890,13 @@ class PEARLAgent(nn.Module):
             r = info['sparse_reward']
             #print("Update r:", r)
         
-        o = ptu.from_numpy(o[None, None, ...])
-        a = ptu.from_numpy(a[None, None, ...])
-        r = ptu.from_numpy(np.array(r)[None, None, ...])
+        #print(f"update_context(): o: {o}; a: {a}; r: {r}; no: {no}")
+        o = ptu.from_numpy(np.array(o)[None, None, ...])
+        a = ptu.from_numpy(np.array(a)[None, ...])
+        r = ptu.from_numpy(np.array(r)[None, None, None, ...])
         #r = from_numpy(np.array([r])[None, None, ...])
-        no = ptu.from_numpy(no[None, None, ...])
+        no = ptu.from_numpy(np.array(no)[None, None, ...])
+        #print(f"update_context(): size: o: {o.size()}; a: {a.size()}; r: {r.size()}; no: {no.size()}")
 
         if self.use_next_obs_in_context:
             data = torch.cat([o, a, r, no], dim=2)
@@ -928,12 +943,16 @@ class PEARLAgent(nn.Module):
     def get_action(self, obs, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''
         z = self.z
-        print(f"PEARLAgent:obs(): {obs}, {type(obs)}")
+        #print(f"PEARLAgent:obs(): {obs}, {type(obs)}")
         #obs = ptu.from_numpy(obs[None])
         obs = ptu.from_numpy(np.array(obs)[None])
         in_ = torch.cat([obs, z], dim=1)
         return self.policy.get_action(in_, deterministic=deterministic)
 
+    def get_realaction(self, action_tensor):
+        #print(f"PEARLAgent(): get_realaction(): action_tensor(): {action_tensor}")
+        return self.policy.unpack_action(action_tensor)
+    
     def set_num_steps_total(self, n):
         self.policy.set_num_steps_total(n)
 
@@ -1453,7 +1472,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 sparse_rewards = np.stack(e['sparse_reward'] for e in p['env_infos']).reshape(-1, 1)
                 p['rewards'] = sparse_rewards
 
-        goal = self.env._goal
+        goal = self.env.goal_words
         for path in paths:
             path['goal'] = goal # goal
 
@@ -1466,22 +1485,22 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
     def _do_eval(self, indices, epoch):
         final_returns = []
         online_returns = []
-        forward_vel_returns = []
-        goal_vel_returns = []
+        #forward_vel_returns = []
+        #goal_vel_returns = []
         for idx in indices:
             all_rets = []
-            forward_vel = []
-            goal_vel = []
+            #forward_vel = []
+            #goal_vel = []
             for r in range(self.num_evals):
                 paths = self.collect_paths(idx, epoch, r)
                 #forward_vel, _goal_vel are specific o cheetah-vel.json environment (HalfCheetahVel) in rlkit.envs
-                forward_vel.append(self.env.forward_vel)
-                goal_vel.append(self.env._goal_vel)
+                #forward_vel.append(self.env.forward_vel)
+                #goal_vel.append(self.env._goal_vel)
                 all_rets.append([get_average_returns([p]) for p in paths])
 
             final_returns.append(np.mean([a[-1] for a in all_rets]))
-            forward_vel_returns.append(np.mean(forward_vel))
-            goal_vel_returns.append(np.mean(goal_vel))
+            #forward_vel_returns.append(np.mean(forward_vel))
+            #goal_vel_returns.append(np.mean(goal_vel))
 
             # record online returns for the first n trajectories
             n = min([len(a) for a in all_rets])
@@ -1490,7 +1509,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             online_returns.append(all_rets)
         n = min([len(t) for t in online_returns])
         online_returns = [t[:n] for t in online_returns]
-        return final_returns, online_returns, forward_vel_returns, goal_vel_returns
+        return final_returns, online_returns  #, forward_vel_returns, goal_vel_returns
 
     def evaluate(self, epoch):
         if self.eval_statistics is None:
@@ -1533,23 +1552,25 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             train_returns.append(get_average_returns(paths))
         train_returns = np.mean(train_returns)
         #self.summary_writer.add_scalar("Average_Reward", train_returns, self.iter)
+        print(f"[EVAL] train_returns: {train_returns}")
         self.AR.write(str(self.iter) + "   " + str(train_returns) + "   " + str(epoch) +"\n") 
         ### eval train tasks with on-policy data to match eval of test tasks
-        train_final_returns, train_online_returns, __, __ = self._do_eval(indices, epoch)
-        self.AR_train_final.write(str(self.iter) + "   " + str(np.mean(train_final_returns)) + "   " + str(epoch) +"\n")
+        train_final_returns, train_online_returns = self._do_eval(indices, epoch)
         
+        self.AR_train_final.write(str(self.iter) + "   " + str(np.mean(train_final_returns)) + "   " + str(epoch) +"\n")
+        print(f"[EVAL] train_final_returns: {train_final_returns}")
         dprint('train online returns')
         dprint(train_online_returns)
 
         ### test tasks
         dprint('evaluating on {} test tasks'.format(len(self.eval_tasks)))
-        test_final_returns, test_online_returns, test_forward_vel_returns, test_goal_vel_returns = self._do_eval(self.eval_tasks, epoch)
+        test_final_returns, test_online_returns = self._do_eval(self.eval_tasks, epoch)
         self.AR_test_final.write(str(self.iter) + "   " + str(np.mean(test_final_returns)) + "   " + str(epoch) +"\n")
 
-        for id, tidx in enumerate(self.eval_tasks):
-            self.AR_forward_vel_final.write(str(self.iter) + "   " + str(tidx) + "   " + str(test_forward_vel_returns[id]) + "   " + str(epoch) +"\n")
-            self.AR_goal_vel_final.write(str(self.iter) + "   " + str(tidx) + "   " + str(test_goal_vel_returns[id]) + "   " + str(epoch) +"\n")
-
+        #for id, tidx in enumerate(self.eval_tasks):
+            #self.AR_forward_vel_final.write(str(self.iter) + "   " + str(tidx) + "   " + str(test_forward_vel_returns[id]) + "   " + str(epoch) +"\n")
+            #self.AR_goal_vel_final.write(str(self.iter) + "   " + str(tidx) + "   " + str(test_goal_vel_returns[id]) + "   " + str(epoch) +"\n")
+        print(f"[EVAL] test_final_returns: {test_final_returns}")
         dprint('test online returns')
         dprint(test_online_returns)
 
@@ -1755,9 +1776,12 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
             self.agent.detach_z()
 
     def _min_q(self, obs, actions, task_z):
+        #print(f"[PearlSoftActorCritic]: Neural Nets, qf1 = {self.qf1} \n qf2 = {self.qf2}")
         q1 = self.qf1(obs, actions, task_z.detach())
         q2 = self.qf2(obs, actions, task_z.detach())
+        #print(f"[PearlSoftActorCritic]: Neural Nets, q1 = {q1}, [{q1.size()}] \n qf2 = {q2}, [{q2.size()}]")
         min_q = torch.min(q1, q2)
+        #print(f"[PearlSoftActorCritic]: Neural Nets, min_q = {min_q}, [{min_q.size()}]")
         return min_q
 
     def _update_target_network(self):
@@ -1771,14 +1795,14 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         # data is (task, batch, feat)
         obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
 
-        print(f"PEARLSoftActorCritic(): _take_step(): agent = {self.agent}")
+        #print(f"PEARLSoftActorCritic(): _take_step(): agent = {self.agent}")
         #print(f"PEARLSoftActorCritic(): _take_step(): obs = {obs}, size = {obs.size()}")
         #print(f"PEARLSoftActorCritic(): _take_step(): context = {context}, size = {context.size()}")
         # run inference in networks
         policy_outputs, task_z = self.agent(obs, context)
         #traceback.print_stack()
         new_actions, policy_mean, policy_log_std, log_pi = policy_outputs[:4]
-        print(f"PEARLSoftActorCritic(): _take_step():new_actions = {new_actions}")
+        #print(f"PEARLSoftActorCritic(): _take_step():new_actions = {new_actions}, logpi = {log_pi}")
 
         # flattens out the task dimension
         t, b, _ = obs.size()
@@ -1839,7 +1863,7 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         std_reg_loss = self.policy_std_reg_weight * (policy_log_std**2).mean()
         pre_tanh_value = policy_outputs[-1]
         pre_activation_reg_loss = self.policy_pre_activation_weight * (
-            (pre_tanh_value**2).sum(dim=1).mean()
+            (pre_tanh_value**2).sum(1).mean()
         )
         policy_reg_loss = mean_reg_loss + std_reg_loss + pre_activation_reg_loss
         policy_loss = policy_loss + policy_reg_loss
@@ -1921,6 +1945,7 @@ def experiment(variant):
     print("All Tasks: ", tasks)
     obs_dim = int(np.prod(env.observation_space.shape))  #20 for cheetah-vel
     action_dim = 26    #6 for cheetah-vel
+    action_dim_2 = 26
     reward_dim = 1
 
     # instantiate networks
@@ -1938,12 +1963,12 @@ def experiment(variant):
     )
     qf1 = FlattenMlp(
         hidden_sizes=[net_size, net_size, net_size],
-        input_size=obs_dim + action_dim + latent_dim,
+        input_size=obs_dim + action_dim_2 + latent_dim,
         output_size=1,
     )
     qf2 = FlattenMlp(
         hidden_sizes=[net_size, net_size, net_size],
-        input_size=obs_dim + action_dim + latent_dim,
+        input_size=obs_dim + action_dim_2 + latent_dim,
         output_size=1,
     )
     vf = FlattenMlp(
@@ -1963,6 +1988,18 @@ def experiment(variant):
         policy,
         **variant['algo_params']
     )
+
+    #print(f"[PearlSoftActorCritic]: Neural Nets, context_encoder_input_dim = {context_encoder_input_dim}; context_encoder_output_dim = {context_encoder_output_dim}")
+    #print(f"[PearlSoftActorCritic]: Neural Nets, context_encoder = {context_encoder}")
+
+    #print(f"[PearlSoftActorCritic]: Neural Nets, net_size = {net_size}; obs_dim = {obs_dim}; action_dim = {action_dim}; latent_dim = {latent_dim}")
+    #print(f"[PearlSoftActorCritic]: Neural Nets, qf1 = {qf1}")
+    #print(f"[PearlSoftActorCritic]: Neural Nets, qf2 = {qf2}")
+    #print(f"[PearlSoftActorCritic]: Neural Nets, vf = {vf}")
+    #print(f"[PearlSoftActorCritic]: Neural Nets, policy = {policy}")
+
+    #raise RuntimeError(f"Just crashing")
+    
     algorithm = PEARLSoftActorCritic(
         env=env,
         train_tasks=list(tasks[:variant['n_train_tasks']]),
